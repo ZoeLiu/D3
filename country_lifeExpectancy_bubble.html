@@ -1,0 +1,170 @@
+<meta charset="utf-8">
+<style>
+
+.circle:hover {
+  fill: brown;
+}  
+
+.axis {
+  font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+
+.d3-tip {
+  line-height: 1;
+  font-weight: bold;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  border-radius: 2px;
+}
+
+/* Creates a small triangle extender for the tooltip */
+.d3-tip:after {
+  box-sizing: border-box;
+  display: inline;
+  font-size: 10px;
+  width: 100%;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.8);
+  content: "\25BC";
+  position: absolute;
+  text-align: center;
+}
+
+</style>
+<body>
+<script src="d3/d3.js"></script>
+<script src="d3/d3.tip.v0.6.3.js"></script>
+<script>
+
+
+//set parameters for margins, position of xAxis
+var margin = {top: 20, right: 20, bottom: 100, left: 40},
+    width = 800 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+    xAxisHeight = height + 2 ;  //put xAxis a bit down to accomodate the circle size
+
+//set x, y scales, ranges  
+var x = d3.scale.linear()
+    .range([0, width]);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+//set x, y axis
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+    .ticks(10);
+
+//set colors for circles
+var color = ["#1f77b4","#d62728","#98df8a","#2ca02c","#ff7f0e","#9467bd"];
+var colorScale = d3.scale.linear()
+                .range([0,color.length-1])
+                .domain([55,85]);  //set scales domain for colors
+    
+
+//create svg element
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+// import the data and create the graph    
+d3.csv("country_life_expectancy.csv", type, function(error, data) {
+
+  //set the domain of x, y based on the data
+  x.domain([0, d3.max(data, function(d) { return d.totalspend; }) + 200]);
+  y.domain([0, d3.max(data, function(d) { return d.doctors; }) + 10 ]);
+
+  //add the x axis. move the position down 
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + xAxisHeight +")")
+      .call(xAxis);
+
+  //add the y axis. move the position down and rotate the labels on axis
+   svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+        .append("text")
+        .attr("transform", "rotate(-90)")
+        .style("text-anchor", "end");
+     
+  //set the tooltip
+  var tip = d3.tip()
+   .attr('class', 'd3-tip')
+   .direction('e')
+   .offset([0, 20])
+   .html(function(d) {
+     return '<p><strong></strong></p>'
+             + '<p><span id="lifeExpectancy">' + d.country + ' : ' 
+             + d.lifeExpectancy + ' yrs' + '</span></p>';
+   });
+
+  svg.call(tip);
+  
+ 
+  //add the bar graph
+  svg.selectAll(".circle")
+      .data(data)
+      .enter().append("circle")
+      .attr("class", "circle")
+      .attr("cx", function(d) { return x(d.totalspend); })
+      .attr("cy", function(d) { return y(d.doctors); })
+      .attr("r", function(d) { return Math.pow((d.lifeExpectancy - 45)*0.14,2); })
+      .attr("fill",function(d) { return color[Math.ceil(colorScale(d.lifeExpectancy))];})
+      .on('mouseover',tip.show)
+      .on('mouseout',tip.hide);
+
+
+  //add the title 
+  svg.append("text")
+        .attr("x", (width / 2))             
+        .attr("y", (margin.top))
+        .attr("text-anchor", "middle")  
+        .style("font-size", "26px") 
+        .text("Country Life Expectancy");   
+        
+        
+   //add title for X-axis    
+    svg.append("text")
+    .attr("x", width / 2 )
+    .attr("y",  height + margin.bottom/2)
+    .style("text-anchor", "middle")
+    .text("Per capita total spending");
+
+    //add title for Y-axis
+    svg.append("text")
+    .attr("transform", "rotate(-90)")
+    .attr("y", 0-margin.left*1.1)
+    .attr("x",0 - (height / 2))
+    .attr("dy", "1em")
+    .style("text-anchor", "middle")
+    .text("Doctors per 10,000 population");        
+        
+});
+
+function type(d) {
+  d.totalspend = +d.totalspend;
+  d.doctors = +d.doctors;
+  d.lifeExpectancy = +d.lifeExpectancy;
+  return d;
+}
+
+</script>
+

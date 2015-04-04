@@ -1,0 +1,144 @@
+<meta charset="utf-8">
+<style>
+
+path:hover {
+  fill: #d9d9d9;
+}  
+
+.d3-tip {
+  line-height: 1;
+  font-weight: bold;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  border-radius: 2px;
+}
+
+
+.d3-tip:after {
+  box-sizing: border-box;
+  display: inline;
+  font-size: 10px;
+  width: 100%;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.8);
+  content: "\25BC";
+  position: absolute;
+  text-align: center;
+}
+
+.arc path {
+  stroke: #fff;
+}
+
+</style>
+
+<body>
+<script src="d3/d3.js"></script>
+<script src="d3/d3pie.js"></script>
+<script src="d3/d3.tip.v0.6.3.js"></script>
+<script>
+
+
+//set parameters for margins, position of xAxis
+var margin = {top: 100, right: 20, bottom: 100, left: 40},
+    width = 1000 - margin.left - margin.right,
+    height = 800 - margin.top - margin.bottom;
+
+
+//set radius for the pie
+var radius = Math.min(width,height) / 2;
+
+//set color for the pie
+var color = d3.scale.category20c();    
+    
+//specify the bucket size to find the best-looking graph
+var bucketSize = 500; 
+
+//create svg element
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform", "translate(" + (width / 2) +  "," + (height / 2) + ")");
+
+
+//define radius
+var arc = d3.svg.arc()
+  .outerRadius(radius);
+
+//start and end angles of the segments
+ var pie = d3.layout.pie()
+     .value(function(d) { return d.value; })
+     .sort(null);
+
+
+// import the data and create the graph    
+d3.csv("country_totalspending.csv", type, function(error, data) {
+
+  //create new data array that counts the number of countries in each bucket  
+  var newdata = [];
+  var newdata_length = Math.floor(d3.max(data, function(d) { return d.totalspend; })/bucketSize)+1;
+
+  //create a new group variable that indicate the bucket range. e.g. a range from 200 to 400 will be labeled as '200-400' 
+  for (var i = 0; i < newdata_length; i++) {
+     newdata.push({group: i*bucketSize+"-"+(i+1)*bucketSize, value: 0, country: ""});
+  };
+
+  //calculate the count for each group
+  for (var i = 0; i < data.length; i++) {
+     var group = Math.floor(data[i].totalspend/bucketSize);
+     newdata[group].value++;
+  };
+
+   //create the list of countries for each group
+  for (var i = 0; i < data.length; i++) {
+     var group = Math.floor(data[i].totalspend/bucketSize);
+     var country = data[i].country;
+     newdata[group].country += country + '<br/>\n';
+  }; 
+
+
+     
+ //set the tooltip
+ var tip = d3.tip()
+   .attr('class', 'd3-tip')
+   .direction('e')
+   .offset([0, 20])
+   .html(function(d) {
+     return '<p><strong>Countries:</strong></p>'
+             + '<p><span id="value">' + d.data.country + '</span></p>';
+   });
+
+  svg.call(tip);
+
+  //create pie chart
+  var path = svg.selectAll("path")
+      .data(pie(newdata))  //extract data through pie function
+      .enter().append("path")
+      .attr("d", arc)
+      .attr("fill", function(d) {
+        return color(d.data.group);
+      })
+      .on('mouseover',tip.show)
+      .on('mouseout',tip.hide);
+
+   //add the title 
+   svg.append("text")
+        .attr("x", (width /2) - margin.right*6)             
+        .attr("y", (margin.bottom))
+        .attr("text-anchor", "middle")  
+        .style("font-size", "26px") 
+        .text("Per capita total spending on health");   
+
+
+});
+
+
+function type(d) {
+  d.totalspend = +d.totalspend;
+  return d;
+};
+
+</script>
+

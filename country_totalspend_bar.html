@@ -1,0 +1,198 @@
+<meta charset="utf-8">
+<style>
+
+.bar {
+  fill: steelblue;
+}
+
+.bar:hover {
+  fill: brown;
+}  
+
+.axis {
+  font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.d3-tip {
+  line-height: 1;
+  font-weight: bold;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  border-radius: 2px;
+}
+
+/* Creates a small triangle extender for the tooltip */
+.d3-tip:after {
+  box-sizing: border-box;
+  display: inline;
+  font-size: 10px;
+  width: 100%;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.8);
+  content: "\25BC";
+  position: absolute;
+  text-align: center;
+}
+
+</style>
+<body>
+<script src="d3/d3.js"></script>
+<script src="d3/d3.tip.v0.6.3.js"></script>
+<script>
+
+//specify the bucket size to find the best-looking graph
+var bucketSize = 500;
+
+//set parameters for margins, position of xAxis
+var margin = {top: 20, right: 20, bottom: 100, left: 40},
+    width = 1000 - margin.left - margin.right,
+    height = 400 - margin.top - margin.bottom;
+    xAxisHeight = height + 20;  //put xAxis further down to allow long labels
+
+//set x, y scales, ranges  
+var x = d3.scale.ordinal()
+    .rangeRoundBands([0, width], .05);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+//set x, y axis
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+    .ticks(10);
+
+
+//create svg element
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+// import the data and create the graph    
+d3.csv("country_totalspending.csv", type, function(error, data) {
+
+  //create new data array that counts the number of countries in each bucket  
+  var newdata = [];
+  var newdata_length = Math.floor(d3.max(data, function(d) { return d.totalspend; })/bucketSize)+1;
+
+  //create a new group variable that indicate the bucket range. e.g. a range from 200 to 400 will be labeled as '200-400' 
+  for (var i = 0; i < newdata_length; i++) {
+     newdata.push({group: i*bucketSize+"-"+(i+1)*bucketSize, value: 0, country: ""});
+  }
+  //calculate the count for each group
+  for (var i = 0; i < data.length; i++) {
+     var group = Math.floor(data[i].totalspend/bucketSize);
+     newdata[group].value++;
+  }
+
+   //create the list of countries for each group
+  for (var i = 0; i < data.length; i++) {
+     var group = Math.floor(data[i].totalspend/bucketSize);
+     var country = data[i].country;
+     newdata[group].country += country + '<br/>\n';
+  } 
+
+
+  //set the domain of x, y based on the newdata
+  x.domain(newdata.map(function(d) { return d.group; }));
+  y.domain([0, d3.max(newdata, function(d) { return d.value; }) + 3]);
+
+  //add the x axis. move the position down and rotate the labels on axis
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + xAxisHeight +")")
+      .call(xAxis)
+        .selectAll("text")
+        .attr("transform", function(d) { return "rotate(-65)"; });
+
+  //add the y axis. move the position down and rotate the labels on axis
+   svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+        .append("text")
+        .attr("transform", "rotate(-90)");
+        /*
+        .attr("y", 6)
+        .attr("dy", ".71em")
+        .style("text-anchor", "end");*/
+
+     
+ //set the tooltip
+ var tip = d3.tip()
+   .attr('class', 'd3-tip')
+   .direction('e')
+   .offset([0, 20])
+   .html(function(d) {
+     return '<p><strong>Countries:</strong></p>'
+             + '<p><span id="value">' + d.country + '</span></p>';
+   });
+
+  svg.call(tip);
+  
+
+  //add the bar graph
+  svg.selectAll(".bar")
+      .data(newdata)
+      .enter().append("rect")
+      .attr("class", "bar")
+      .attr("x", function(d) { return x(d.group); })
+      .attr("width", x.rangeBand())
+      .attr("y", function(d) { return y(d.value); })
+      .attr("height", function(d) { return height - y(d.value); }) 
+      .on('mouseover',tip.show)
+      .on('mouseout',tip.hide);
+
+
+  //add the title 
+  svg.append("text")
+        .attr("x", (width / 2))             
+        .attr("y", (margin.top))
+        .attr("text-anchor", "middle")  
+        .style("font-size", "26px") 
+        .text("Per capita total spending on health (PPP int. $)"); 
+        
+         
+   //add title for X-axis    
+   svg.append("text")
+        .attr("x", width / 2 )
+        .attr("y",  height + margin.bottom/2 + 20)
+        .style("text-anchor", "middle")
+        .text("Per capita total health spending range");
+
+    //add title for Y-axis
+    svg.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 0-margin.left*1.1)
+        .attr("x",0 - (height / 2))
+        .attr("dy", "1em")
+        .style("text-anchor", "middle")
+        .text("Number of countries");         
+        
+});
+
+function type(d) {
+  d.totalspend = +d.totalspend;
+  return d;
+}
+
+</script>
+
